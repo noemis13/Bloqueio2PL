@@ -6,7 +6,7 @@ import java.util.Random;
 public class Schedule {
 	private LinkedList<Operacao> scheduleInList;
         private LinkedList<Operacao> operacoesEscalonadas;
-
+        
 
 	public Schedule(LinkedList<Transacao> transacoes) {
 		scheduleInList = new LinkedList<>();
@@ -38,4 +38,13 @@ public class Schedule {
 		this.scheduleInList = scheduleInList;
 	}
 
+        public LinkedList<Operacao> getOperacoesEscalonadas() {
+            return operacoesEscalonadas;
+        }
+
+        public void setOperacoesEscalonadas(LinkedList<Operacao> operacoesEscalonadas) {
+            this.operacoesEscalonadas = operacoesEscalonadas;
+        }
+
+        
 }

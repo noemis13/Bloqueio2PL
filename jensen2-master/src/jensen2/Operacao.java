@@ -26,8 +26,9 @@ public class Operacao {
 		this.setDado(new Dado(itemDado));
         }
 
-        
-        
+        public Operacao() {
+        }
+
 
 	public Dado getDado() {
 		return dado;
@@ -53,13 +54,21 @@ public class Operacao {
 		this.acesso = acesso;
 	}
 
-    private void setIdOperacao(int idOperacao) {
-        this.idOperacao = idOperacao;
+        private void setIdOperacao(int idOperacao) {
+            this.idOperacao = idOperacao;
+        }
+
+    public int getIdOperacao() {
+        return idOperacao;
     }
+        
+        
     
     @Override
     public String toString() {
         return String.valueOf(indice);
     }
+    
+    
 
 }
