@@ -3,6 +3,7 @@ package jensen2;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Scanner;
+import static jensen2.TransacaoDao.adicionaListaEscalonadaNoBanco;
 
 public class Main {
 
@@ -14,6 +15,7 @@ public class Main {
     private static ArrayList<String> listaDeSchedule = new ArrayList<>();
     private static ArrayList<String> transacaoEscalonada = new ArrayList();
     private static ArrayList<String> listaEspera = new ArrayList();
+    private static ArrayList<String> transacoesAbortadas = new ArrayList<>();
 
     public static void main(String[] args) {
         scanner = new Scanner(System.in);
@@ -61,10 +63,17 @@ public class Main {
 
             listaDeSchedule.add(schedule);
             escalonarSchedule(i);
-            
+
             i++;
             //quando a lista tiver fazia ou nao puder continuar, deeve fazer uma nova consulta
         }
+        //Ao final do escalonamento, executa as transações que estão esperando
+        executaListaEspera();
+        //adicionar as transacoes abortadas
+        executaTransacoesAbortadas();
+        
+        //adicionar transações escalonadas no banco de dados
+        adicionaOperacoesEscalonadas();
     }
 
     /*
@@ -78,7 +87,12 @@ public class Main {
             transacaoEscalonada.add(transacao);
 
         } else if (transacao.contains("E")) {
-            transacaoEscalonada.add(transacao);
+            //verifica se existe um deadLock
+            String indiceOp = null;
+            String[] indice = listaDeSchedule.get(i).split("");
+            indiceOp = indice[1];
+
+            verificaDeadLock(transacao, indiceOp, i);
 
         } else if (transacao.contains("C")) {
             transacaoEscalonada.add(transacao);
@@ -99,8 +113,8 @@ public class Main {
             boolean terminou;
             escalonada = verificaDadosIguais(transacao, indiceOp, apenasDado, i);
             realizaEscalonamento(escalonada, transacao);
-            
-        } else if (listaDeSchedule.get(i).contains("R")) {
+
+        } else if (transacao.contains("R")) {
             String[] splitOperacao = listaDeSchedule.get(i).split("\\(");
             String apenasDado = splitOperacao[1];
             splitOperacao = apenasDado.split("\\)");
@@ -116,9 +130,24 @@ public class Main {
             boolean terminou;
             escalonada = verificaDadosIguais(transacao, indiceOp, apenasDado, i);
             realizaEscalonamento(escalonada, transacao);
-        }
-        
+
+        } else if (transacao.contains("C")) {
+            String indiceOp = null;
+            String[] indice = listaDeSchedule.get(i).split("");
+            indiceOp = indice[1];
+            
+            //deve verificar se a transacao do C foi abortada
+            for (int j = 0; j < transacoesAbortadas.size(); j++) {
+                if(transacoesAbortadas.get(j).contains(indiceOp)){
+                   transacoesAbortadas.add(transacao);
+                }else {
+                    transacaoEscalonada.add(transacao);
+                }
+            }
+            
+        }//if
     }
+
 
     /*
     Método responsável por dado um dado da transação, 
@@ -134,7 +163,7 @@ public class Main {
                 String[] split = listaDeSchedule.get(i).split("");
                 String operecao = split[0];
                 boolean verifica;
-                        
+
                 //verifica a operacao que possui o mesmo dado de indice diferente
                 if (operecao.equals("W")) {
                     if (transacao.contains("R")) {
@@ -142,11 +171,11 @@ public class Main {
                         String readVerifica = "R" + indiceOpTransacao + "(" + apenasDadoTransacao + ")";
                         verifica = verificaReadMesmoIndice(readVerifica, iTransacao);
                         escalona = verificaTerminoTransacao(verifica, listaDeSchedule.get(i), iTransacao);
-                        
+
                     } else {
                         verifica = false;
                         escalona = verificaTerminoTransacao(verifica, listaDeSchedule.get(i), iTransacao);
-                        
+
                     }
 
                 } else if (operecao.equals("R")) {
@@ -158,7 +187,7 @@ public class Main {
                         escalona = true;
                     }
                 }
-            //a transacao pode ser escalonada    
+                //a transacao pode ser escalonada    
             } else {
                 escalona = true;
             }
@@ -221,6 +250,152 @@ public class Main {
         } else {
             listaEspera.add(transacao);
         }
+
+    }
+
+    
+    /*
+    Método responsável por verificar se a transação
+    está em deadLock
+     */
+    public static void verificaDeadLock(String transacao, String indiceOperacao, int cont) {
+        boolean aborta = false;
+        String transcaoAbort = null;
+
+        for (int i = 0; i < transacaoEscalonada.size(); i++) {
+            //verificar se existe algum transacao em espera
+            if (!transacaoEscalonada.get(i).startsWith("S")) {
+                if (!transacaoEscalonada.get(i).startsWith("E")) {
+                    if (!transacaoEscalonada.get(i).contains("C") && transacaoEscalonada.get(i).contains(indiceOperacao)) {
+                        String[] split = transacaoEscalonada.get(i).split("\\(");
+                        String dado = split[1];
+                        String[] apenasDado = dado.split("\\)");
+                        dado = apenasDado[0];
+
+                        for (int j = 0; j < listaEspera.size(); j++) {
+                            if (listaEspera.get(j).contains(dado) && !listaEspera.get(j).contains(indiceOperacao)) {
+                                //verifica se existe deadLock
+                                aborta = verificaSeTemW(indiceOperacao, dado, cont);
+                                if (aborta == true) {
+                                    transcaoAbort = transacaoEscalonada.get(i);
+                                }
+                            }
+                        }
+
+                    }//if
+                }//if
+            }//if
+        }//for
+
+        //aborta transacao se nescessário.
+        if (aborta == true) {
+            String start = "S"+indiceOperacao;
+            transacaoEscalonada.remove(start);
+            transacaoEscalonada.remove(transcaoAbort);
+            
+            transacoesAbortadas.add(start);
+            transacoesAbortadas.add(transcaoAbort);
+            
+            //verifica se tem um commit
+            for (int i = 0; i < transacaoEscalonada.size(); i++) {
+                if(transacaoEscalonada.get(i).startsWith("C") && transacaoEscalonada.get(i).contains(indiceOperacao)){
+                    transacaoEscalonada.remove(transacaoEscalonada.get(i));
+                    transacoesAbortadas.add(transacaoEscalonada.get(i));
+                }
+            }
+            
+        } else {
+            transacaoEscalonada.add(transacao);
+        }
         
     }
+
+    /*
+    Método responsável por dado uma transacao que está terminando
+    Verifica, se ela além de realizar um READ, fez um WRITE
+     */
+    public static boolean verificaSeTemW(String indiceOperacao, String dado, int cont) {
+        boolean aborta = true;
+        for (int i = 0; i < transacaoEscalonada.size(); i++) {
+            String write = "W" + indiceOperacao + "(" + dado + ")";
+            if (transacaoEscalonada.get(i).equals(write) && i < cont) {
+                aborta = false;
+                break;
+            }
+        }
+
+        return aborta;
+    }
+
+    
+    /*
+    Método responsável por verificar a lista de esperar
+    e executar. Verifica se pode ser escalonada ou se existe um deadLock
+     */
+    public static void executaListaEspera() {
+        boolean removeEexecuta = false;
+
+        for (int i = 0; i < listaEspera.size(); i++) {
+            String[] splitOperacao = listaEspera.get(i).split("\\(");
+            String apenasDado = splitOperacao[1];
+            splitOperacao = apenasDado.split("\\)");
+            apenasDado = splitOperacao[0];
+
+            String[] splitIndice = listaEspera.get(i).split("");
+            String indice = splitIndice[1];
+
+            for (int j = 0; j < transacaoEscalonada.size(); j++) {
+                if (transacaoEscalonada.get(j).contains("E") || transacaoEscalonada.get(j).contains("C")
+                        && !transacaoEscalonada.get(j).contains(indice) && transacaoEscalonada.get(j).contains(apenasDado)) {
+                    removeEexecuta = true;
+                    transacaoEscalonada.add(listaEspera.get(i));
+                    
+                }
+
+            }//for escalonado
+            if (removeEexecuta == true) {
+                listaEspera.remove(i);
+                
+            }
+
+        }//for espera
+    }
+
+    /*
+    Método responsável por adicionar ao final da
+    lista de escalonamento as trasações
+    que foram abortadas devido ao deadLock.
+    */
+    public static void executaTransacoesAbortadas(){
+        for (int i = 0; i < transacoesAbortadas.size(); i++) {
+            transacaoEscalonada.add(transacoesAbortadas.get(i));
+        }
+    }
+
+    
+    /*
+        Método responsável por adicionar as transacaoEscalonada
+        na operacoes escalonadas que será adicionado no banco
+     */
+    private static void adicionaOperacoesEscalonadas() {
+        
+        for (int i = 0; i < transacaoEscalonada.size(); i++) {
+            String[] split = transacaoEscalonada.get(i).split("");
+            String acesso = split[0];
+            int indice = Integer.parseInt(split[1]);
+
+            if (acesso.equals("W") || acesso.equals("R")) {
+                String[] s = transacaoEscalonada.get(i).split("\\(");
+                String dado = s[1];
+                String[] apenasDado = dado.split("\\)");
+                dado = apenasDado[0];
+                
+                adicionaListaEscalonadaNoBanco(indice, dado, dado);
+            /*} else{
+                adicionaListaEscalonadaNoBanco(indice, acesso, null);
+            */}
+        
+        }
+    }
+
 }

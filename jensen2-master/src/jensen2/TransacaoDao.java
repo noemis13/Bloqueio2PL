@@ -48,6 +48,33 @@ public class TransacaoDao {
         }
     }
 
+    /*
+    Método responsável por após escalonar um schedule
+    adicionar esse escalonamento ao banco de dados.
+     */
+    public static void adicionaListaEscalonadaNoBanco(int indiceTransacao, String operacao, String dado) {
+
+        Connection conn = minhaConexao.getConnection();
+        String sql = "INSERT INTO scheduleescalonado(indiceTransacao, operacao, itemDado, timestampj) VALUES (?, ?, ?, ?)";
+        PreparedStatement stmt = null;
+        try {
+            stmt = conn.prepareStatement(sql);
+            stmt.setInt(1, indiceTransacao);
+            stmt.setString(2, operacao);
+            stmt.setString(3, dado);
+            stmt.setString(4, new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Erro na insercao da transacao");
+        }
+
+        try {
+            minhaConexao.releaseAll(stmt, conn);
+        } catch (SQLException e) {
+            System.out.println("Erro ao encerrar conex�o");
+        }
+    }
+
     //Busca no Banco
     public static Schedule buscarTransacoes(int idoperacao, int transacoes, int operacoes) {
         Schedule s = null;
