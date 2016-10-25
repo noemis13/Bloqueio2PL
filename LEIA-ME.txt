@@ -1,0 +1,56 @@
+===============================================================================
+		Implementação Bloqueio Bifásico 
+			Banco de Dados 2
+			UTFPR-Campo Mourão
+		       Noemi Pereira Scherer
+			 Higor Celante
+===============================================================================
+
+1)Materiais Utilizado
+	-Banco de Dados PostgreSQL, e interface PgAdminIII;
+	-Produtor disponibilizado em: https://github.com/saviocamacam/jensen2 
+	-Bloqueio Bifásico implementado na linguagem Java;
+	-IDE: NetBeans;
+
+
+2)Execução do Código
+	O código pode ser executado pela classe principal MAIN.java no Netbeans. Os resultados das transações escalonadas pelo bloqueio Bifásico são salvas no Banco de Dados em uma tabela denominada: scheduleescalonado.
+
+
+3)O código
+3.1. Ideia Geral
+	Para o funcionamento do bloqueio bifásico, primeiramente é feito uma consulta dos schedules gerados pelo produtor no banco de dados e salvo em uma variável Schedule no programa. Com esse Schedule, é montado em formato padrão (ex. S1, W1(ID1)) para facilitar o modo de extrair os dados. É escalonado esse Schedule aplicando o conceito do bloqueio bifásico, os dados escalonados são salvo em uma lista, e os dados que devem esperar são salvos em outra. É verificado se dentro da lista dos dados escalonados existe um DeadLock, e é tratado caso for preciso. Ao final de todos os dados escalonados, são salvos os dados que estavam na lista de espera, e as transações na lista dos dados escalonados são escrito no banco de dados.
+
+
+3.2. Classes e Métodos
+	A busca dos Schedule no banco de dados é implementada na Classe TransacaoDao.java, no método buscarTransacoes().
+	-buscarTransacoes(), recebe por parâmetro o idDaOperação, transações, e as operações.
+
+	Classe Main.java:
+	-geraSaidaSchedule(): Método responsável por criar um Schedule s que irá receber a consulta do schedule no Banco. A cada valor do Schedule, é adicionado a uma lista de Schedule no formato padrão. Ele chama o método escalonarSchedule(), que irá aplicar o bloqueio Bifásico. Ao final do escalonamento, ele adiciona as transações da lista de espera chamando executarListaEspera(), adiciona transações abortadas devido ao DeadLock, chamando executaTransacoesAbortadas(), e excreve as lista escalonada no Banco de dados, chamando adicionaOperacoesEscalonadas().
+
+	-escalonarSchedule(): A cada transação do Schedule, ele aplica as ações do Bloqueio Bifásico. Se o schedule for um S(Start), deve adicionar na lista escalonada. Se for um E (end), deve verificar se existe um deadLock para saber ou não se finaliza a transação. Se for um C (Commit), todas as verificações já foram feitas, então a transação pode ser finalizada. Se for um W (Write) ou R (Read), deve verificar se a transação pode ser adicionada na lista de escalonada ou se ela é dependente de outra e deve ser adicionada na lista de espera.
+
+	-verificaDadosIguais(): Recebe uma transação de um schedule atual, seu indice e dado, e uma determinada transação a se comparar. Ele deve verficar se a transação pode ou não ser escalonada. Basicamente: Se a transação atual for Write, deve verificar se existe um Read do mesmo índice e dado para escalonar, assim como um Write do mesmo índice, ou se a transação comparada (Read/Write) já terminou. Se for Read, deve verificar se não existe um Write do mesmo dado e índice diferente, ou se ele já terminou.
+
+	-verificaReadMesmoIndice(): Complemento do verificaDadosIguais(), o seu objetivo é dado uma transação Write, deve verificar se existe um Read antes dele com o mesmo índice e dado para realizar o escalonamento.
+
+	-verificaTerminoTransacao(): Método responsável por verificar se uma transação não pode ser escalonada ainda, deve saber se a sua dependente do escalonamente já temrinou.
+
+	-realizaEscalonamento():Método resposável por adicionar transação na lista de escalonados ou adicionar na lista de espera de acordo com uma variável booleana passado por parâmetro. Se for verdadeira, deve escalanar a transação atual, se não, a transação deve ser adicionada à lista de espera.
+
+	-verificaDeadLock(): Método responsável por verificar se a transação
+    está em deadLock. Uma transação está em deadLock, quando existe um end de uma transação de um dado que possui apenas Read, e nenhum Write. E na lista de espera existe uma transação esperando para realizar uma operação sobre esse dado.
+
+	-verificaSeTemW():  Método responsável por dado uma transacao que está terminando verifica, se ela além de realizar um READ, fez um WRITE antes de ser finalizada.
+
+	-executaListaEspera(): Ao final do escalonamento, adiciona os elementos da lista de espera nas transações escalonadas.
+
+	-executaTransacoesAbortadas(): Adiciona as transações abortadas pelo deadLock na Lista de escalonamento.
+
+	-adicionaOperacoesEscalonadas(): Para cada elemento da lista de escalonamento, é adicionado no banco de dados, chamando o método adicionaListaEscalonadaNoBanco() na classe TransacaoDao.java.
+
+	Classe TransacaoDao.java
+	-adicionaListaEscalonadaNoBanco(): Recebe por parâmetro o indice, a operação e o dado da transação da Lista de escalonadas para serem adicionadas no banco de dados.
+  
+	

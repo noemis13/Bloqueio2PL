@@ -65,13 +65,13 @@ public class Main {
             escalonarSchedule(i);
 
             i++;
-            //quando a lista tiver fazia ou nao puder continuar, deeve fazer uma nova consulta
+
         }
         //Ao final do escalonamento, executa as transações que estão esperando
         executaListaEspera();
         //adicionar as transacoes abortadas
         executaTransacoesAbortadas();
-        
+
         //adicionar transações escalonadas no banco de dados
         adicionaOperacoesEscalonadas();
     }
@@ -135,19 +135,30 @@ public class Main {
             String indiceOp = null;
             String[] indice = listaDeSchedule.get(i).split("");
             indiceOp = indice[1];
-            
+
             //deve verificar se a transacao do C foi abortada
             for (int j = 0; j < transacoesAbortadas.size(); j++) {
-                if(transacoesAbortadas.get(j).contains(indiceOp)){
-                   transacoesAbortadas.add(transacao);
-                }else {
+                if (transacoesAbortadas.get(j).contains(indiceOp)) {
+                    transacoesAbortadas.add(transacao);
+                } else {
                     transacaoEscalonada.add(transacao);
                 }
             }
-            
+
+        } else if (transacao.contains("A")) {
+            String indiceOp = null;
+            String[] indice = listaDeSchedule.get(i).split("");
+            indiceOp = indice[1];
+
+            //remove todas transações ja escalonadas
+            for (int j = 0; j < transacaoEscalonada.size(); j++) {
+                if (transacaoEscalonada.get(j).contains(indiceOp)) {
+                    transacaoEscalonada.remove(j);
+                }
+            }
+
         }//if
     }
-
 
     /*
     Método responsável por dado um dado da transação, 
@@ -253,7 +264,6 @@ public class Main {
 
     }
 
-    
     /*
     Método responsável por verificar se a transação
     está em deadLock
@@ -289,25 +299,25 @@ public class Main {
 
         //aborta transacao se nescessário.
         if (aborta == true) {
-            String start = "S"+indiceOperacao;
+            String start = "S" + indiceOperacao;
             transacaoEscalonada.remove(start);
             transacaoEscalonada.remove(transcaoAbort);
-            
+
             transacoesAbortadas.add(start);
             transacoesAbortadas.add(transcaoAbort);
-            
+
             //verifica se tem um commit
             for (int i = 0; i < transacaoEscalonada.size(); i++) {
-                if(transacaoEscalonada.get(i).startsWith("C") && transacaoEscalonada.get(i).contains(indiceOperacao)){
+                if (transacaoEscalonada.get(i).startsWith("C") && transacaoEscalonada.get(i).contains(indiceOperacao)) {
                     transacaoEscalonada.remove(transacaoEscalonada.get(i));
                     transacoesAbortadas.add(transacaoEscalonada.get(i));
                 }
             }
-            
+
         } else {
             transacaoEscalonada.add(transacao);
         }
-        
+
     }
 
     /*
@@ -327,7 +337,6 @@ public class Main {
         return aborta;
     }
 
-    
     /*
     Método responsável por verificar a lista de esperar
     e executar. Verifica se pode ser escalonada ou se existe um deadLock
@@ -349,13 +358,13 @@ public class Main {
                         && !transacaoEscalonada.get(j).contains(indice) && transacaoEscalonada.get(j).contains(apenasDado)) {
                     removeEexecuta = true;
                     transacaoEscalonada.add(listaEspera.get(i));
-                    
+
                 }
 
             }//for escalonado
             if (removeEexecuta == true) {
                 listaEspera.remove(i);
-                
+
             }
 
         }//for espera
@@ -365,20 +374,19 @@ public class Main {
     Método responsável por adicionar ao final da
     lista de escalonamento as trasações
     que foram abortadas devido ao deadLock.
-    */
-    public static void executaTransacoesAbortadas(){
+     */
+    public static void executaTransacoesAbortadas() {
         for (int i = 0; i < transacoesAbortadas.size(); i++) {
             transacaoEscalonada.add(transacoesAbortadas.get(i));
         }
     }
 
-    
     /*
         Método responsável por adicionar as transacaoEscalonada
         na operacoes escalonadas que será adicionado no banco
      */
     private static void adicionaOperacoesEscalonadas() {
-        
+
         for (int i = 0; i < transacaoEscalonada.size(); i++) {
             String[] split = transacaoEscalonada.get(i).split("");
             String acesso = split[0];
@@ -389,12 +397,12 @@ public class Main {
                 String dado = s[1];
                 String[] apenasDado = dado.split("\\)");
                 dado = apenasDado[0];
-                
-                adicionaListaEscalonadaNoBanco(indice, dado, dado);
-            /*} else{
-                adicionaListaEscalonadaNoBanco(indice, acesso, null);
-            */}
-        
+
+                adicionaListaEscalonadaNoBanco(indice, acesso, dado);
+            } else {
+                adicionaListaEscalonadaNoBanco(indice, acesso, "_");
+            }
+
         }
     }
 
